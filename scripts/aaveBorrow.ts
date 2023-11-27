@@ -1,5 +1,7 @@
-async function main() {
+import {getWeth} from "./getWeth";
 
+async function main() {
+    await getWeth();
 }
 
 
