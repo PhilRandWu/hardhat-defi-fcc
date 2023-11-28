@@ -14,7 +14,8 @@ async function main() {
     // 将一定数量的 WETH（Wrapped Ether）代币存入 Aave 金库中，并生成相应的借贷凭证。
     await lendingPool.deposit(wethTokenAddress, AMOUNT, deployer, 0);
     console.log("Deposited!")
-    const {availableBorrowsETH,totalDebtETH} = await getBorrowUserData(lendingPool, deployer);
+    const {availableBorrowsETH, totalDebtETH} = await getBorrowUserData(lendingPool, deployer);
+    const price = await getDaiPrice();
 }
 
 /**
@@ -73,6 +74,21 @@ async function getBorrowUserData(lendingPool: any, account: Signer): Promise<{
     console.log(`You have ${totalDebtETH} worth of ETH borrowed.`)
     console.log(`You can borrow ${availableBorrowsETH} worth of ETH.`)
     return {availableBorrowsETH, totalDebtETH}
+}
+
+/**
+ * 获取当前 DAI/ETH 交易对的最新价格
+ * @return price 当前 DAI/ETH 交易对的最新价格
+ */
+async function getDaiPrice(): Promise<bigint> {
+    const chainId = network.config.chainId;
+    const daiEthPriceFeed = await ethers.getContractAt(
+        "AggregatorV3Interface",
+        NetWorkConfig[chainId!].daiEthPriceFeed
+    );
+    const price = (await daiEthPriceFeed.latestRoundData())[1];
+    console.log(`The DAI/ETH price is ${price.toString()}`)
+    return price
 }
 
 main()
