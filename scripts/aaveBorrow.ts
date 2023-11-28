@@ -9,9 +9,12 @@ async function main() {
     await getWeth();
     const lendingPool = await getLendingPool(deployer);
     const wethTokenAddress = NetWorkConfig[chainId!].wethToken;
-    await approveErc20(wethTokenAddress,lendingPool.target,AMOUNT,deployer);
+    await approveErc20(wethTokenAddress, lendingPool.target, AMOUNT, deployer);
     console.log("Depositing WETH...");
-    // console.log("lendingPool",lendingPool);
+    // 将一定数量的 WETH（Wrapped Ether）代币存入 Aave 金库中，并生成相应的借贷凭证。
+    await lendingPool.deposit(wethTokenAddress, AMOUNT, deployer, 0);
+    console.log("Deposited!")
+    const {availableBorrowsETH,totalDebtETH} = await getBorrowUserData(lendingPool, deployer);
 }
 
 /**
@@ -43,10 +46,33 @@ async function getLendingPool(account: Signer) {
  * @param signer 用于发送交易的账户对象（即 Signer 对象）。
  */
 async function approveErc20(erc20Address: string, spenderAddress: string | Addressable, amount: bigint, signer: Signer) {
-    const erc20Token = await ethers.getContractAt("IERC20",erc20Address,signer);
-    const txResponse = await erc20Token.approve(spenderAddress,amount);
+    const erc20Token = await ethers.getContractAt("IERC20", erc20Address, signer);
+    const txResponse = await erc20Token.approve(spenderAddress, amount);
     txResponse.wait(1);
     console.log("Approved!");
+}
+
+/**
+ * 获取指定 Aave 金库账户的借贷相关信息
+ * @param lendingPool Aave 协议的 LendingPool 合约实例。
+ * @param account 要查询的账户地址。
+ * @returns totalCollateralETH: 存入到 Aave 金库中的 ETH 总价值。
+ * @returns totalDebtETH: 借出的 ETH 总价值。
+ * @returns availableBorrowsETH: 可以借出的 ETH 价值。
+ */
+async function getBorrowUserData(lendingPool: any, account: Signer): Promise<{
+    availableBorrowsETH: string;
+    totalDebtETH: string;
+}> {
+    const {
+        totalCollateralETH,
+        totalDebtETH,
+        availableBorrowsETH
+    } = await lendingPool.getUserAccountData(account);
+    console.log(`You have ${totalCollateralETH} worth of ETH deposited.`)
+    console.log(`You have ${totalDebtETH} worth of ETH borrowed.`)
+    console.log(`You can borrow ${availableBorrowsETH} worth of ETH.`)
+    return {availableBorrowsETH, totalDebtETH}
 }
 
 main()
