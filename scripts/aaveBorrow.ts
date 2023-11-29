@@ -27,6 +27,13 @@ async function main() {
         deployer.address
     )
     await getBorrowUserData(lendingPool, deployer);
+    await repay(
+        amountDaiToBorrowWei,
+        NetWorkConfig[chainId!].daiToken,
+        lendingPool,
+        deployer
+    )
+    await getBorrowUserData(lendingPool, deployer);
 }
 
 /**
@@ -116,6 +123,22 @@ async function borrowDai(daiAddress: string, lendingPool: any, amountDaiToBorrow
     await borrowTx.wait(1)
     console.log("You've borrowed!")
 }
+
+/**
+ * 用于向 Aave 还回借入的资产
+ * @param amount 需要还款的资产数量。
+ * @param daiAddress 需要还款的资产地址。
+ * @param lendingPool Aave 借贷协议的合约实例，用于调用还款方法。
+ * @param account 当前用户的以太坊地址。
+ */
+async function repay(amount: bigint, daiAddress: string, lendingPool: any, account: Signer) {
+    // 将用户的资产授权给 Aave 借贷协议。
+    await approveErc20(daiAddress, lendingPool.target, amount, account);
+    const repayTx = await lendingPool.repay(daiAddress, amount, 2, (account  as any).address);
+    await repayTx.wait(1);
+    console.log("Repaid!")
+}
+
 
 main()
     .then(() => process.exit(0))
