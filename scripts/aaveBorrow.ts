@@ -16,6 +16,17 @@ async function main() {
     console.log("Deposited!")
     const {availableBorrowsETH, totalDebtETH} = await getBorrowUserData(lendingPool, deployer);
     const price = await getDaiPrice();
+    // 1 ETH * (3 Dai / 1 ETH) * 0.95(限制最大借出比率)
+    const amountDaiToBorrow = Number(availableBorrowsETH) * (1 / Number(price)) * (95 / 100);
+    const amountDaiToBorrowWei = ethers.parseEther(amountDaiToBorrow.toString());
+    console.log(`You can borrow ${amountDaiToBorrow.toString()} DAI, ${amountDaiToBorrowWei} Wei`);
+    await borrowDai(
+        NetWorkConfig[chainId!].daiToken,
+        lendingPool,
+        amountDaiToBorrowWei,
+        deployer.address
+    )
+    await getBorrowUserData(lendingPool, deployer);
 }
 
 /**
@@ -62,8 +73,8 @@ async function approveErc20(erc20Address: string, spenderAddress: string | Addre
  * @returns availableBorrowsETH: 可以借出的 ETH 价值。
  */
 async function getBorrowUserData(lendingPool: any, account: Signer): Promise<{
-    availableBorrowsETH: string;
-    totalDebtETH: string;
+    availableBorrowsETH: number;
+    totalDebtETH: number;
 }> {
     const {
         totalCollateralETH,
@@ -80,7 +91,7 @@ async function getBorrowUserData(lendingPool: any, account: Signer): Promise<{
  * 获取当前 DAI/ETH 交易对的最新价格
  * @return price 当前 DAI/ETH 交易对的最新价格
  */
-async function getDaiPrice(): Promise<bigint> {
+async function getDaiPrice(): Promise<string> {
     const chainId = network.config.chainId;
     const daiEthPriceFeed = await ethers.getContractAt(
         "AggregatorV3Interface",
@@ -88,7 +99,22 @@ async function getDaiPrice(): Promise<bigint> {
     );
     const price = (await daiEthPriceFeed.latestRoundData())[1];
     console.log(`The DAI/ETH price is ${price.toString()}`)
-    return price
+    return price.toString()
+}
+
+/**
+ *
+ * @param daiAddress DAI 代币合约地址。
+ * @param lendingPool
+ * @param amountDaiToBorrow 需要借出的 DAI 代币数量，以最小单位为单位。
+ * @param account 借款账户地址。
+ */
+async function borrowDai(daiAddress: string, lendingPool: any, amountDaiToBorrow: BigInt, account: string) {
+    // 1: 借出资产类型，默认为 1（即固定利率）。
+    // 0: 还款期限，默认为 0（即无限期）
+    const borrowTx = await lendingPool.borrow(daiAddress, amountDaiToBorrow, 2, 0, account)
+    await borrowTx.wait(1)
+    console.log("You've borrowed!")
 }
 
 main()
